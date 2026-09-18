@@ -1,0 +1,7 @@
+{
+  "name": "오사카 4인 가족 완벽 여행 가이드북",
+  "description": "오사카 4인 가족을 위한 2박 3일 맞춤형 일정, 실시간 지하철 노선도, USJ 공략, 맛집 예약/검색, 가계부, 실시간 혼잡도 지도 및 생존 일본어 가이드북",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
