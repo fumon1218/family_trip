@@ -15,6 +15,7 @@ import { DutyFreeCalcModal } from './components/DutyFreeCalcModal';
 import { ConvenienceStoreModal } from './components/ConvenienceStoreModal';
 import { RestaurantPhrasesModal } from './components/RestaurantPhrasesModal';
 import { AirportDepartureModal } from './components/AirportDepartureModal';
+import { FlightScheduleModal } from './components/FlightScheduleModal';
 import { PhotoSpotGuideModal } from './components/PhotoSpotGuideModal';
 import { AccommodationModal } from './components/AccommodationModal';
 import { initialScheduleData, osakaAccommodations, applyAccommodationToSchedule } from './data/guidebookData';
@@ -33,6 +34,7 @@ export default function App() {
   const [convenienceModalOpen, setConvenienceModalOpen] = useState(false);
   const [restaurantPhrasesModalOpen, setRestaurantPhrasesModalOpen] = useState(false);
   const [airportModalOpen, setAirportModalOpen] = useState(false);
+  const [flightScheduleModalOpen, setFlightScheduleModalOpen] = useState(false);
   const [photoSpotsModalOpen, setPhotoSpotsModalOpen] = useState(false);
   const [accommodationModalOpen, setAccommodationModalOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
@@ -151,6 +153,7 @@ export default function App() {
           onOpenConvenience={() => setConvenienceModalOpen(true)}
           onOpenRestaurantPhrases={() => setRestaurantPhrasesModalOpen(true)}
           onOpenAirport={() => setAirportModalOpen(true)}
+          onOpenFlightSchedule={() => setFlightScheduleModalOpen(true)}
           onOpenPhotoSpots={() => setPhotoSpotsModalOpen(true)}
           selectedHotel={selectedAccommodation}
           onOpenAccommodationModal={() => setAccommodationModalOpen(true)}
@@ -231,6 +234,7 @@ export default function App() {
             onOpenPacking={() => setPackingModalOpen(true)}
             onOpenDutyFree={() => setDutyFreeModalOpen(true)}
             onOpenAirport={() => setAirportModalOpen(true)}
+          onOpenFlightSchedule={() => setFlightScheduleModalOpen(true)}
             onOpenPhotoSpots={() => setPhotoSpotsModalOpen(true)}
             selectedHotel={selectedAccommodation}
             onOpenAccommodationModal={() => setAccommodationModalOpen(true)}
@@ -268,6 +272,7 @@ export default function App() {
             onOpenConvenience={() => setConvenienceModalOpen(true)}
             onOpenRestaurantPhrases={() => setRestaurantPhrasesModalOpen(true)}
             onOpenAirport={() => setAirportModalOpen(true)}
+          onOpenFlightSchedule={() => setFlightScheduleModalOpen(true)}
             onOpenPhotoSpots={() => setPhotoSpotsModalOpen(true)}
             selectedHotel={selectedAccommodation}
             onOpenAccommodationModal={() => setAccommodationModalOpen(true)}
@@ -338,6 +343,12 @@ export default function App() {
         isOpen={airportModalOpen}
         onClose={() => setAirportModalOpen(false)}
         selectedHotel={selectedAccommodation}
+      />
+
+      {/* 8b. Korea-Osaka Flight Schedule Lookup */}
+      <FlightScheduleModal
+        isOpen={flightScheduleModalOpen}
+        onClose={() => setFlightScheduleModalOpen(false)}
       />
 
       {/* 9. Family Photo Spots & Hidden Angles Guide */}
