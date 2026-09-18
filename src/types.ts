@@ -16,6 +16,9 @@ export interface ScheduleItem {
   rainyBackup?: string;
   durationMinutes?: number;
   tags?: string[];
+  rainProbability?: number; // e.g. 70 means 70% precipitation chance
+  isOutdoor?: boolean; // Outdoor itinerary requiring rain care
+  rainAlertActive?: boolean; // Triggered active rain alert
 }
 
 export interface SpotInfo {
@@ -120,8 +123,11 @@ export interface SubwayLine {
 
 export interface WeatherData {
   city: string;
+  isLive?: boolean;
+  lastUpdated?: string;
   current: {
     temp: number;
+    apparentTemp?: number;
     condition: string;
     icon: string;
     humidity: number;
@@ -136,6 +142,7 @@ export interface WeatherData {
     condition: string;
     icon: string;
     rainProb: string;
+    rainProbNumber?: number;
     tip: string;
   }>;
 }

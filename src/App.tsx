@@ -19,7 +19,8 @@ import { PhotoSpotGuideModal } from './components/PhotoSpotGuideModal';
 import { AccommodationModal } from './components/AccommodationModal';
 import { initialScheduleData, osakaAccommodations, applyAccommodationToSchedule } from './data/guidebookData';
 import { TabType, ScheduleItem, WeatherData, Accommodation } from './types';
-import { CloudSun, Umbrella, Thermometer, Wind, CheckCircle } from 'lucide-react';
+import { fetchOsakaWeather } from './utils/weatherService';
+import { CloudSun, Umbrella, Thermometer, Wind, CheckCircle, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('itinerary');
@@ -58,8 +59,22 @@ export default function App() {
     return applyAccommodationToSchedule(osakaAccommodations[0], initialScheduleData);
   });
 
-  // Weather state
+  // Weather state & Rain Simulation
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [rainSimulationDay, setRainSimulationDay] = useState<number | null>(null);
+  const [isRefreshingWeather, setIsRefreshingWeather] = useState<boolean>(false);
+
+  const loadWeather = async () => {
+    setIsRefreshingWeather(true);
+    try {
+      const data = await fetchOsakaWeather();
+      setWeather(data);
+    } catch (e) {
+      console.error('Failed to load Osaka weather:', e);
+    } finally {
+      setIsRefreshingWeather(false);
+    }
+  };
 
   // Persist schedule changes to localStorage
   useEffect(() => {
@@ -70,27 +85,9 @@ export default function App() {
     }
   }, [schedule]);
 
-  // Fetch weather data on mount
+  // Fetch live weather data on mount
   useEffect(() => {
-    fetch('/api/weather')
-      .then((res) => res.json())
-      .then((data) => setWeather(data))
-      .catch(() => {
-        // Fallback default weather
-        setWeather({
-          city: 'Osaka, Japan',
-          current: {
-            temp: 14,
-            condition: '맑음 / 온화함',
-            icon: 'sun',
-            humidity: 50,
-            windKmH: 12,
-            precipitationChance: 10,
-            clothingTip: '아침저녁 쌀쌀함, 낮 활동 시 가벼운 외투 권장. USJ는 바닷바람이 있으니 핫팩 지참!',
-          },
-          forecast: [],
-        });
-      });
+    loadWeather();
   }, []);
 
   const handleToggleComplete = (id: string) => {
@@ -172,16 +169,32 @@ export default function App() {
                   <CloudSun className="w-5 h-5 text-amber-300" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-100">
-                    <span>오사카 실시간 기상 정보</span>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-100 flex-wrap">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      오사카 실시간 기상 (Open-Meteo)
+                    </span>
                     <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded font-mono">
                       {weather.current.condition}
                     </span>
+                    <button
+                      type="button"
+                      onClick={loadWeather}
+                      disabled={isRefreshingWeather}
+                      className="p-1 hover:bg-white/20 rounded-md transition-colors cursor-pointer"
+                      title="실시간 날씨 새로고침"
+                    >
+                      <RefreshCw
+                        className={`w-3 h-3 text-white ${
+                          isRefreshingWeather ? 'animate-spin' : ''
+                        }`}
+                      />
+                    </button>
                   </div>
                   <div className="text-xl sm:text-2xl font-black tracking-tight flex items-baseline gap-2">
                     <span>{weather.current.temp}°C</span>
                     <span className="text-xs font-normal text-blue-100">
-                      습도 {weather.current.humidity}% · 바람 {weather.current.windKmH}km/h
+                      체감 {weather.current.apparentTemp ? `${weather.current.apparentTemp}°C` : `${weather.current.temp}°C`} · 습도 {weather.current.humidity}% · 강수확률 {weather.current.precipitationChance}%
                     </span>
                   </div>
                 </div>
@@ -221,6 +234,10 @@ export default function App() {
             onOpenPhotoSpots={() => setPhotoSpotsModalOpen(true)}
             selectedHotel={selectedAccommodation}
             onOpenAccommodationModal={() => setAccommodationModalOpen(true)}
+            weather={weather}
+            rainSimulationDay={rainSimulationDay}
+            onSetRainSimulationDay={setRainSimulationDay}
+            onRefreshWeather={loadWeather}
           />
         )}
 
@@ -289,6 +306,7 @@ export default function App() {
       <WeatherRainyGuideModal
         isOpen={weatherRainyModalOpen}
         onClose={() => setWeatherRainyModalOpen(false)}
+        weather={weather}
       />
 
       {/* 4. USJ Timetable Scheduler Modal */}

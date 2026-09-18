@@ -24,8 +24,10 @@ import {
   Navigation,
   ExternalLink,
   X,
+  Umbrella,
+  CloudRain,
 } from 'lucide-react';
-import { ScheduleItem, Accommodation } from '../types';
+import { ScheduleItem, Accommodation, WeatherData } from '../types';
 
 interface TransitSegment {
   id: string;
@@ -54,6 +56,8 @@ interface TimelineDiagramProps {
   onOpenTaxi?: () => void;
   onOpenUsj?: () => void;
   onOpenWeather?: () => void;
+  rainSimulationDay?: number | null;
+  weather?: WeatherData | null;
 }
 
 type DiagramMode = 'gantt' | 'flow' | 'matrix';
@@ -235,6 +239,8 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
   onOpenTaxi,
   onOpenUsj,
   onOpenWeather,
+  rainSimulationDay,
+  weather,
 }) => {
   // Local state for view modes and filters
   const [internalDay, setInternalDay] = useState<number>(3);
@@ -243,6 +249,28 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedTransitId, setSelectedTransitId] = useState<string | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+
+  // Weather Rain Alert logic per schedule item
+  const getRainAlert = (item: ScheduleItem) => {
+    const prob =
+      rainSimulationDay !== null && rainSimulationDay !== undefined
+        ? item.day === rainSimulationDay
+          ? 80
+          : 15
+        : weather?.forecast?.[item.day - 1]?.rainProbNumber ?? 15;
+
+    const isOutdoor =
+      item.category === 'attraction' ||
+      item.category === 'transport' ||
+      item.location.includes('공원') ||
+      item.location.includes('거리') ||
+      item.location.includes('USJ') ||
+      item.title.includes('오사카성') ||
+      item.title.includes('도톤보리');
+
+    const isRain = prob >= 50 && isOutdoor;
+    return { isRain, prob };
+  };
 
   const selectedDay = propSelectedDay !== undefined ? propSelectedDay : internalDay;
   const handleSelectDay = (day: number) => {
@@ -622,6 +650,7 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
 
                             const isSelected = selectedItemId === item.id;
                             const isHovered = hoveredItemId === item.id;
+                            const rainAlert = getRainAlert(item);
 
                             return (
                               <div
@@ -642,14 +671,24 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
                                   isSelected
                                     ? 'ring-3 ring-slate-900 ring-offset-2 scale-[1.02] z-30'
                                     : ''
+                                } ${
+                                  rainAlert.isRain
+                                    ? 'ring-2 ring-cyan-400 border-cyan-400 shadow-blue-500/20'
+                                    : ''
                                 } ${item.completed ? 'opacity-65 saturate-70' : ''}`}
                               >
-                                {/* Line 1: Time (항상 완전히 표시) + Complete indicator */}
+                                {/* Line 1: Time (항상 완전히 표시) + Rain Badge + Complete indicator */}
                                 <div className="flex items-center justify-between gap-1 overflow-hidden leading-none">
-                                  <div className="flex items-center gap-1 min-w-0">
+                                  <div className="flex items-center gap-1 min-w-0 flex-wrap">
                                     <span className="font-mono text-[10px] font-black bg-black/35 px-1 py-0.5 rounded whitespace-nowrap">
                                       {item.time}
                                     </span>
+                                    {rainAlert.isRain && (
+                                      <span className="font-mono text-[9px] font-black bg-blue-600 text-white px-1 py-0.5 rounded flex items-center gap-0.5 shrink-0 animate-pulse">
+                                        <Umbrella className="w-2.5 h-2.5 text-cyan-200" />
+                                        <span>비 {rainAlert.prob}%</span>
+                                      </span>
+                                    )}
                                     {/* Icon if narrow */}
                                     <span className="hidden sm:inline-block opacity-90 shrink-0">
                                       {cat.icon}
@@ -683,9 +722,14 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
 
                                 {/* Floating Tooltip on Hover */}
                                 {isHovered && (
-                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-slate-950 text-white p-2.5 rounded-xl shadow-xl border border-slate-800 text-xs pointer-events-none z-50 animate-in fade-in zoom-in-95">
-                                    <div className="font-mono text-[10px] text-amber-300 font-bold">
-                                      ⏰ {item.time} ({item.durationMinutes || 90}분 소요)
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 bg-slate-950 text-white p-2.5 rounded-xl shadow-xl border border-slate-800 text-xs pointer-events-none z-50 animate-in fade-in zoom-in-95">
+                                    <div className="flex items-center justify-between gap-1 font-mono text-[10px] text-amber-300 font-bold">
+                                      <span>⏰ {item.time} ({item.durationMinutes || 90}분 소요)</span>
+                                      {rainAlert.isRain && (
+                                        <span className="bg-rose-600 text-white px-1 py-0.2 rounded font-bold text-[9px]">
+                                          ☔ 우천주의
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="font-extrabold text-white text-xs mt-0.5">
                                       {item.title}
@@ -693,6 +737,14 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
                                     <div className="text-[10px] text-slate-300 truncate mt-0.5">
                                       📍 {item.location}
                                     </div>
+                                    {rainAlert.isRain && (
+                                      <div className="mt-1.5 p-1.5 bg-blue-900/80 border border-blue-500 rounded-lg text-[10px] text-cyan-200 flex items-start gap-1">
+                                        <Umbrella className="w-3.5 h-3.5 text-cyan-300 shrink-0 mt-0.5" />
+                                        <span>
+                                          강수확률 {rainAlert.prob}% 비 예보! 실내 대체 플랜 확인 권장
+                                        </span>
+                                      </div>
+                                    )}
                                     {item.badge && (
                                       <div className="mt-1 text-[9px] bg-rose-500/40 text-rose-200 px-1.5 py-0.2 rounded w-fit">
                                         {item.badge}
@@ -1071,6 +1123,37 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
                   ))}
                 </div>
               )}
+
+              {/* Rain Alert Warning Box if rain is forecast for this item */}
+              {(() => {
+                const rainAlert = getRainAlert(activeItem);
+                if (!rainAlert.isRain) return null;
+                return (
+                  <div className="mt-3 p-3.5 bg-blue-950/80 border-2 border-cyan-400 rounded-xl text-xs text-blue-100 flex items-start gap-3 shadow-md animate-in fade-in">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-400 text-slate-950 flex items-center justify-center font-black shrink-0">
+                      <Umbrella className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-cyan-300">
+                          ☔ 비 예보 감지 (강수확률 {rainAlert.prob}%)
+                        </span>
+                        <span className="text-[10px] bg-rose-600 text-white px-1.5 py-0.2 rounded font-bold">
+                          야외 일정 주의
+                        </span>
+                      </div>
+                      <p className="text-slate-200 leading-relaxed">
+                        이 시간대는 야외 보행이 포함되어 우천 시 이동이 불편할 수 있습니다.
+                      </p>
+                      <div className="text-amber-300 font-semibold text-[11px] mt-1">
+                        💡 추천 실내 대체 플랜:{' '}
+                        {activeItem.rainyBackup ||
+                          '인근 실내 아케이드 또는 오사카 역사박물관 10층 실내 전망대 & 우메다 백화점'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Description & Note */}
               <div className="mt-3 p-3 bg-slate-800/80 rounded-xl border border-slate-700/60 text-xs text-slate-300 leading-relaxed">

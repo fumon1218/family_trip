@@ -13,18 +13,20 @@ import {
   MapPin,
   Compass,
 } from 'lucide-react';
+import { WeatherData } from '../types';
 
 interface WeatherRainyGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
+  weather?: WeatherData | null;
 }
 
-export const WeatherRainyGuideModal: React.FC<WeatherRainyGuideModalProps> = ({ isOpen, onClose }) => {
+export const WeatherRainyGuideModal: React.FC<WeatherRainyGuideModalProps> = ({ isOpen, onClose, weather }) => {
   const [activeTab, setActiveTab] = useState<'forecast' | 'rainy_plan' | 'indoor_spots'>('rainy_plan');
 
   if (!isOpen) return null;
 
-  const forecastData = [
+  const defaultForecastData = [
     {
       day: '1일차 (입국 & 도톤보리)',
       temp: '8°C / 16°C',
@@ -50,6 +52,18 @@ export const WeatherRainyGuideModal: React.FC<WeatherRainyGuideModalProps> = ({ 
       clothing: '오사카성 산책 시 땀날 수 있음. 탈착 편한 이너웨어 & 편안한 운동화.',
     },
   ];
+
+  const forecastData = weather?.forecast && weather.forecast.length > 0
+    ? weather.forecast.map((f, i) => ({
+        day: f.day,
+        temp: `${f.tempMin}°C / ${f.tempMax}°C`,
+        condition: f.condition,
+        rainProb: f.rainProb,
+        icon: (f.rainProbNumber ?? 0) >= 50 ? '🌧️' : f.condition.includes('맑음') ? '☀️' : '⛅',
+        clothing: f.tip || defaultForecastData[i]?.clothing || '활동하기 편한 레이어드 룩 추천',
+        isLive: true,
+      }))
+    : defaultForecastData;
 
   const rainyPlans = [
     {

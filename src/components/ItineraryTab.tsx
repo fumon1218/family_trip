@@ -20,8 +20,9 @@ import {
   Layers,
   GitCommit,
 } from 'lucide-react';
-import { ScheduleItem, Accommodation } from '../types';
+import { ScheduleItem, Accommodation, WeatherData } from '../types';
 import { TimelineDiagram } from './TimelineDiagram';
+import { WeatherAlertBanner } from './WeatherAlertBanner';
 
 interface ItineraryTabProps {
   schedule: ScheduleItem[];
@@ -37,6 +38,10 @@ interface ItineraryTabProps {
   onOpenPhotoSpots?: () => void;
   selectedHotel?: Accommodation;
   onOpenAccommodationModal?: () => void;
+  weather?: WeatherData | null;
+  rainSimulationDay?: number | null;
+  onSetRainSimulationDay?: (day: number | null) => void;
+  onRefreshWeather?: () => void;
 }
 
 export const ItineraryTab: React.FC<ItineraryTabProps> = ({
@@ -53,7 +58,15 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
   onOpenPhotoSpots,
   selectedHotel,
   onOpenAccommodationModal,
+  weather,
+  rainSimulationDay: propRainSimulationDay,
+  onSetRainSimulationDay: propOnSetRainSimulationDay,
+  onRefreshWeather,
 }) => {
+  const [internalRainDay, setInternalRainDay] = useState<number | null>(null);
+  const rainSimulationDay = propRainSimulationDay !== undefined ? propRainSimulationDay : internalRainDay;
+  const setRainSimulationDay = propOnSetRainSimulationDay || setInternalRainDay;
+
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [itineraryViewMode, setItineraryViewMode] = useState<'diagram' | 'list'>('diagram');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -151,6 +164,18 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
         </div>
       )}
 
+      {/* Weather Rain Notification Banner */}
+      <WeatherAlertBanner
+        weather={weather || null}
+        schedule={schedule}
+        selectedDay={selectedDay}
+        onRefreshWeather={onRefreshWeather || (() => {})}
+        onOpenWeatherRainyModal={onOpenWeather || (() => {})}
+        onOpenPackingModal={onOpenPacking}
+        rainSimulationDay={rainSimulationDay}
+        onSetRainSimulationDay={setRainSimulationDay}
+      />
+
       {/* View Mode Toggle: Timeline Diagram vs Detailed Card List */}
       <div className="bg-slate-200/70 p-1 rounded-2xl flex items-center gap-1">
         <button
@@ -195,6 +220,8 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
             onOpenTaxi={onOpenTaxi}
             onOpenUsj={onOpenUsj}
             onOpenWeather={onOpenWeather}
+            rainSimulationDay={rainSimulationDay}
+            weather={weather}
           />
 
           <div className="p-3 bg-slate-100 rounded-xl flex items-center justify-between text-xs text-slate-600">
@@ -419,22 +446,49 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
       <div className="space-y-3">
         {filteredSchedule.map((item, index) => {
           const isCompleted = item.completed;
+          const itemRainProb =
+            rainSimulationDay !== null && rainSimulationDay !== undefined
+              ? item.day === rainSimulationDay
+                ? 80
+                : 15
+              : weather?.forecast?.[item.day - 1]?.rainProbNumber ?? 15;
+
+          const isOutdoor =
+            item.category === 'attraction' ||
+            item.category === 'transport' ||
+            item.location.includes('공원') ||
+            item.location.includes('거리') ||
+            item.location.includes('USJ') ||
+            item.title.includes('오사카성') ||
+            item.title.includes('도톤보리');
+
+          const isRainAlert = itemRainProb >= 50 && isOutdoor;
+
           return (
             <div
               key={item.id}
               className={`relative bg-white rounded-2xl border p-3.5 sm:p-4 transition-all ${
-                isCompleted
+                isRainAlert
+                  ? 'border-blue-400 bg-blue-50/20 shadow-md ring-1 ring-blue-300'
+                  : isCompleted
                   ? 'border-slate-200 bg-slate-50/70 opacity-80'
                   : 'border-slate-200/90 shadow-xs hover:border-rose-200 hover:shadow-sm'
               }`}
             >
-              {/* Header line: Time, Badge, Checkbox */}
+              {/* Header line: Time, Badge, Rain Indicator, Checkbox */}
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="flex items-center gap-1 font-mono font-bold text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg">
                     <Clock className="w-3 h-3 text-slate-500" />
                     {item.time}
                   </span>
+
+                  {isRainAlert && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-blue-600 text-white shadow-xs animate-pulse">
+                      <Umbrella className="w-3 h-3 text-cyan-200" />
+                      <span>비 예보 {itemRainProb}%</span>
+                    </span>
+                  )}
 
                   <div className="p-1 bg-slate-50 border border-slate-200/70 rounded-md">
                     {getCategoryIcon(item.category)}
@@ -456,7 +510,7 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
 
                 <button
                   onClick={() => onToggleComplete(item.id)}
-                  className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                  className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer"
                   title={isCompleted ? '완료 취소' : '방문 완료 표시'}
                 >
                   {isCompleted ? (
@@ -487,7 +541,34 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
                 {item.description}
               </p>
 
-              {/* Emergency Tip or Rainy Backup */}
+              {/* Dedicated Rain Alert Warning Box */}
+              {isRainAlert && (
+                <div className="mt-2.5 p-3 bg-blue-100/70 border border-blue-300 rounded-xl text-xs text-blue-950 flex items-start justify-between gap-2 shadow-2xs">
+                  <div className="flex items-start gap-2">
+                    <Umbrella className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-extrabold text-blue-900 flex items-center gap-1.5">
+                        <span>☔ [우천 경고] 비 예보 시간대입니다 (강수확률 {itemRainProb}%)</span>
+                        <span className="text-[10px] bg-rose-600 text-white px-1.5 rounded">야외 보행 주의</span>
+                      </div>
+                      <p className="text-slate-700 text-[11px] mt-1">
+                        💡 <strong>추천 우천 대체:</strong> {item.rainyBackup || '오사카 역사박물관(10층 실내 전망) 및 우메다 다이마루 백화점 실내 쇼핑'}
+                      </p>
+                    </div>
+                  </div>
+                  {onOpenWeather && (
+                    <button
+                      type="button"
+                      onClick={onOpenWeather}
+                      className="px-2.5 py-1 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-[11px] font-bold shrink-0 shadow-xs cursor-pointer"
+                    >
+                      우천 대체 플랜B →
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Emergency Tip */}
               {item.emergencyTip && (
                 <div className="mt-2.5 p-2 bg-red-50/80 border border-red-200/60 rounded-lg flex items-start gap-1.5 text-xs text-red-800">
                   <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
@@ -498,7 +579,7 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
                 </div>
               )}
 
-              {item.rainyBackup && (
+              {item.rainyBackup && !isRainAlert && (
                 <div className="mt-2 p-2 bg-sky-50 border border-sky-200/70 rounded-lg flex items-start gap-1.5 text-xs text-sky-900">
                   <Umbrella className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
                   <span>

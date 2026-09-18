@@ -36,54 +36,141 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-// Weather API endpoint for Osaka
+// Weather API endpoint for Osaka (Real-time data from Open-Meteo with 10-minute cache)
+let weatherCache: { data: any; timestamp: number } | null = null;
+
+function mapWmoToCondition(code: number): { condition: string; icon: string } {
+  if (code === 0) return { condition: "맑음", icon: "sun" };
+  if (code === 1 || code === 2) return { condition: "대체로 맑음", icon: "cloud-sun" };
+  if (code === 3) return { condition: "구름 많음 / 흐림", icon: "cloud" };
+  if (code === 45 || code === 48) return { condition: "안개", icon: "cloud" };
+  if ([51, 53, 55, 56, 57].includes(code)) return { condition: "이슬비", icon: "cloud-rain" };
+  if ([61, 63, 65].includes(code)) return { condition: "비 (우천)", icon: "umbrella" };
+  if ([71, 73, 75, 77].includes(code)) return { condition: "눈", icon: "cloud-snow" };
+  if ([80, 81, 82].includes(code)) return { condition: "소나기", icon: "cloud-rain" };
+  if ([95, 96, 99].includes(code)) return { condition: "뇌우", icon: "cloud-lightning" };
+  return { condition: "흐림", icon: "cloud" };
+}
+
 app.get("/api/weather", async (_req, res) => {
+  const now = Date.now();
+  // 10-minute cache
+  if (weatherCache && now - weatherCache.timestamp < 10 * 60 * 1000) {
+    return res.json(weatherCache.data);
+  }
+
   try {
-    // Return structured Osaka travel weather data
-    // (with accurate seasonal data for Osaka + forecast for 3-day family trip)
+    const apiUrl =
+      "https://api.open-meteo.com/v1/forecast?latitude=34.6937&longitude=135.5023&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo";
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      throw new Error(`Open-Meteo API returned status ${response.status}`);
+    }
+
+    const apiData = await response.json();
+    const current = apiData.current || {};
+    const daily = apiData.daily || {};
+
+    const temp = Math.round(current.temperature_2m ?? 24);
+    const wCode = current.weather_code ?? 0;
+    const { condition, icon } = mapWmoToCondition(wCode);
+    const humidity = Math.round(current.relative_humidity_2m ?? 50);
+    const windKmH = Math.round(current.wind_speed_10m ?? 10);
+    const precipProb = (daily.precipitation_probability_max && daily.precipitation_probability_max[0]) ?? 10;
+
+    // Smart clothing & rain advice based on real-time temperature
+    let clothingTip = "";
+    if (temp >= 26) {
+      clothingTip = "현재 오사카는 다소 덥습니다. 반팔 또는 통기성 좋은 셔츠, 자외선 차단용 모자/선글라스를 착용하세요.";
+    } else if (temp >= 20) {
+      clothingTip = "쾌적한 여행 날씨입니다. 낮에는 가벼운 옷차림, 아침·저녁 및 USJ 바닷바람 대비 얇은 겉옷을 챙기세요.";
+    } else if (temp >= 14) {
+      clothingTip = "선선합니다. 가디건이나 자켓, 걷기 편한 운동화를 착용하세요. 도톤보리 야경 관람 시 겉옷 필수!";
+    } else {
+      clothingTip = "쌀쌀합니다. 보온용 경량 패딩이나 코트, 핫팩을 준비하여 감기에 유의하세요.";
+    }
+
+    if (precipProb >= 50 || [51, 53, 55, 61, 63, 65, 80, 81, 82].includes(wCode)) {
+      clothingTip += " [비 예보 주의] 우산이나 가벼운 우비를 가방에 준비하세요.";
+    }
+
+    const forecast = [];
+    const dayLabels = ["1일차 (도착 & 도톤보리)", "2일차 (USJ 종일)", "3일차 (오사카성 & 출국)"];
+    for (let i = 0; i < 3; i++) {
+      const dCode = daily.weather_code?.[i] ?? 0;
+      const dCond = mapWmoToCondition(dCode);
+      const dMax = Math.round(daily.temperature_2m_max?.[i] ?? temp + 2);
+      const dMin = Math.round(daily.temperature_2m_min?.[i] ?? temp - 5);
+      const dRain = daily.precipitation_probability_max?.[i] ?? 10;
+
+      let tip = "";
+      if (i === 0) {
+        tip = dRain >= 50
+          ? "비 예보가 있습니다. 지붕 아케이드가 완비된 구로몬 시장과 신사이바시스지 위주로 이동하세요."
+          : "구로몬 시장은 아케이드 실내라 이동이 편합니다. 저녁 도톤보리 글리코상 야경 촬영 추천!";
+      } else if (i === 1) {
+        tip = dRain >= 50
+          ? "USJ에 비 예보가 있습니다! 판초 우비를 챙기시고 실내 라이드(해리포터, 마리오카트) 위주로 공략하세요."
+          : "USJ 베이 에리어는 바닷바람으로 체감온도가 낮을 수 있습니다. 가벼운 외투를 지참하세요.";
+      } else {
+        tip = dRain >= 50
+          ? "오사카성 야외 보행 시 비 예보 주의! 맞은편 오사카 역사박물관(실내) 및 우메다 백화점으로 대체 권장."
+          : "오사카성 천수각 관람 후 우메다 다이마루 백화점 13층 실내 쇼핑과 연결하세요.";
+      }
+
+      forecast.push({
+        day: dayLabels[i],
+        tempMin: dMin,
+        tempMax: dMax,
+        condition: dCond.condition,
+        icon: dCond.icon,
+        rainProb: `${dRain}%`,
+        rainProbNumber: dRain,
+        tip,
+      });
+    }
+
+    const resultData = {
+      city: "Osaka, Japan (大阪 실시간 관측)",
+      isLive: true,
+      lastUpdated: new Date().toLocaleTimeString("ko-KR", { timeZone: "Asia/Tokyo" }),
+      current: {
+        temp,
+        apparentTemp: Math.round(current.apparent_temperature ?? temp),
+        condition,
+        icon,
+        humidity,
+        windKmH,
+        precipitationChance: precipProb,
+        clothingTip,
+      },
+      forecast,
+    };
+
+    weatherCache = { data: resultData, timestamp: now };
+    res.json(resultData);
+  } catch (error) {
+    console.error("Open-Meteo fetch failed, using fallback:", error);
+    // Safe seasonal fallback
     res.json({
       city: "Osaka, Japan (大阪)",
+      isLive: false,
       current: {
-        temp: 14,
-        condition: "맑음 / 쾌적함",
-        icon: "sun",
-        humidity: 52,
-        windKmH: 12,
-        precipitationChance: 10,
-        clothingTip: "아침·저녁 쌀쌀함(경량 패딩 또는 두터운 자켓 필수), 낮 시간 활동 시 가벼운 외투 권장. USJ 및 오사카성은 야외 활동이 많으므로 핫팩 준비!",
+        temp: 22,
+        condition: "대체로 맑음",
+        icon: "cloud-sun",
+        humidity: 55,
+        windKmH: 10,
+        precipitationChance: 15,
+        clothingTip: "낮에는 쾌적하고 아침·저녁에는 선선합니다. 얇은 외투를 지참하세요.",
       },
       forecast: [
-        {
-          day: "1일차 (도착 & 도톤보리)",
-          tempMin: 8,
-          tempMax: 16,
-          condition: "구름 조금",
-          icon: "cloud-sun",
-          rainProb: "15%",
-          tip: "구로몬 시장은 아케이드 실내라 이동이 편합니다. 저녁 도톤보리 글리코상 야경 촬영 시 겉옷 지참!",
-        },
-        {
-          day: "2일차 (USJ 종일)",
-          tempMin: 6,
-          tempMax: 15,
-          condition: "맑음",
-          icon: "sun",
-          rainProb: "5%",
-          tip: "USJ 베이 에리어는 바닷바람으로 체감온도가 3~4도 낮습니다. 목도리나 핫팩을 챙기세요.",
-        },
-        {
-          day: "3일차 (오사카성 & 우메다)",
-          tempMin: 9,
-          tempMax: 17,
-          condition: "오후 일시적 흐림",
-          icon: "cloud",
-          rainProb: "25%",
-          tip: "우천 시 오사카성은 실내 천수각 위주로 관람하고 우메다 다이마루 백화점 실내 쇼핑을 즐기세요.",
-        },
+        { day: "1일차 (도착 & 도톤보리)", tempMin: 18, tempMax: 26, condition: "대체로 맑음", icon: "cloud-sun", rainProb: "15%", rainProbNumber: 15, tip: "구로몬 시장 및 도톤보리 야경 관광하기 좋습니다." },
+        { day: "2일차 (USJ 종일)", tempMin: 17, tempMax: 25, condition: "맑음", icon: "sun", rainProb: "10%", rainProbNumber: 10, tip: "USJ 방문하기 좋은 날씨입니다. 바닷바람용 겉옷 준비." },
+        { day: "3일차 (오사카성 & 출국)", tempMin: 18, tempMax: 27, condition: "구름 조금", icon: "cloud-sun", rainProb: "20%", rainProbNumber: 20, tip: "오사카성 공원 산책 후 우메다 쇼핑에 적합합니다." },
       ],
     });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch weather" });
   }
 });
 
