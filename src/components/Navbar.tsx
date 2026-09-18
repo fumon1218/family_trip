@@ -15,6 +15,7 @@ import {
   Store,
   Utensils,
   Plane,
+  Radar,
   Camera,
   Hotel,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ interface NavbarProps {
   onOpenConvenience?: () => void;
   onOpenRestaurantPhrases?: () => void;
   onOpenAirport?: () => void;
+  onOpenFlightSchedule?: () => void;
   onOpenPhotoSpots?: () => void;
   selectedHotel?: Accommodation;
   onOpenAccommodationModal?: () => void;
@@ -49,6 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenConvenience,
   onOpenRestaurantPhrases,
   onOpenAirport,
+  onOpenFlightSchedule,
   onOpenPhotoSpots,
   selectedHotel,
   onOpenAccommodationModal,
@@ -219,6 +222,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Plane className="w-3.5 h-3.5 text-sky-500" />
               <span>✈️ 출국·수하물</span>
+            </button>
+          )}
+
+          {onOpenFlightSchedule && (
+            <button
+              onClick={onOpenFlightSchedule}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 text-slate-800 hover:text-indigo-900 border border-slate-200 font-bold transition-all shrink-0 cursor-pointer shadow-2xs"
+            >
+              <Radar className="w-3.5 h-3.5 text-indigo-500" />
+              <span>🛫 항공편 조회</span>
             </button>
           )}
 
