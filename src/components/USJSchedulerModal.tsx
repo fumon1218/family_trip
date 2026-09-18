@@ -18,6 +18,7 @@ import {
   Utensils,
   Ticket,
 } from 'lucide-react';
+import { UsjWaitTimesPanel } from './UsjWaitTimesPanel';
 
 interface USJEvent {
   id: string;
@@ -305,6 +306,9 @@ export const USJSchedulerModal: React.FC<USJSchedulerModalProps> = ({ isOpen, on
 
         {/* Timeline Event List */}
         <div className="flex-1 p-4 overflow-y-auto space-y-2.5">
+          {/* Live USJ ride wait times (Queue-Times.com API, no key required) */}
+          <UsjWaitTimesPanel />
+
           {events.map((e) => (
             <div
               key={e.id}

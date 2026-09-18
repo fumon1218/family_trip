@@ -11,6 +11,7 @@ import {
   Heart,
   ChevronRight,
 } from 'lucide-react';
+import { NearbyAtmConvenienceFinder } from './NearbyAtmConvenienceFinder';
 
 interface ConvenienceStoreModalProps {
   isOpen: boolean;
@@ -233,7 +234,7 @@ export const ConvenienceStoreModal: React.FC<ConvenienceStoreModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [selectedChain, setSelectedChain] = useState<'lawson' | 'seven' | 'family' | 'drinks'>(
+  const [selectedChain, setSelectedChain] = useState<'lawson' | 'seven' | 'family' | 'drinks' | 'nearby'>(
     'lawson'
   );
   const [copiedText, setCopiedText] = useState<string | null>(null);
@@ -267,6 +268,8 @@ export const ConvenienceStoreModal: React.FC<ConvenienceStoreModalProps> = ({
         return FAMILYMART_ITEMS;
       case 'drinks':
         return DRINK_ITEMS;
+      case 'nearby':
+        return [];
     }
   };
 
@@ -332,11 +335,24 @@ export const ConvenienceStoreModal: React.FC<ConvenienceStoreModalProps> = ({
           >
             <span>🍺 맥주 & 과실음료</span>
           </button>
+          <button
+            onClick={() => setSelectedChain('nearby')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
+              selectedChain === 'nearby'
+                ? 'bg-teal-600 text-white shadow-xs'
+                : 'bg-white text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <span>📍 내 주변 ATM/편의점</span>
+          </button>
         </div>
 
         {/* Modal Scroll Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {selectedChain === 'nearby' && <NearbyAtmConvenienceFinder />}
+
           {/* Items Grid */}
+          {selectedChain !== 'nearby' && (
           <div className="space-y-3">
             {getCurrentItems().map((item, idx) => (
               <div
@@ -383,8 +399,10 @@ export const ConvenienceStoreModal: React.FC<ConvenienceStoreModalProps> = ({
               </div>
             ))}
           </div>
+          )}
 
           {/* Real-time Japanese Requests for Cashier */}
+          {selectedChain !== 'nearby' && (
           <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-md space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -420,6 +438,7 @@ export const ConvenienceStoreModal: React.FC<ConvenienceStoreModalProps> = ({
               ))}
             </div>
           </div>
+          )}
         </div>
 
         {/* Footer */}

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { osakaSpotsData, subwayLinesData, subwayStationsData } from '../data/guidebookData';
 import { SpotInfo, Accommodation } from '../types';
+import { WikiSummaryPanel } from './WikiSummaryPanel';
 
 interface MapSubwayTabProps {
   onOpenTaxi?: () => void;
@@ -371,6 +372,9 @@ export const MapSubwayTab: React.FC<MapSubwayTabProps> = ({
                 <span>{selectedSpot.familyTip}</span>
               </div>
             </div>
+
+            {/* Wikipedia Summary (Wikipedia REST API, no key required) */}
+            <WikiSummaryPanel query={selectedSpot.name} />
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2 pt-1">

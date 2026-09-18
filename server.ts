@@ -174,6 +174,72 @@ app.get("/api/weather", async (_req, res) => {
   }
 });
 
+// 외교부 해외안전여행 - 국가·지역별 여행경보 프록시 (data.go.kr, 키가 있어야 동작)
+// Base URL은 확인됨: https://apis.data.go.kr/1262000/CountryHistoryService2
+// 오퍼레이션명은 미확인 상태 - .env의 MOFA_TRAVEL_ALERT_ENDPOINT에서 조정 가능
+let travelAlertCache: { data: any; timestamp: number } | null = null;
+
+app.get("/api/travel-alert", async (_req, res) => {
+  const now = Date.now();
+  // 1시간 캐시 (여행경보는 실시간성이 낮은 정보)
+  if (travelAlertCache && now - travelAlertCache.timestamp < 60 * 60 * 1000) {
+    return res.json(travelAlertCache.data);
+  }
+
+  const serviceKey = process.env.MOFA_TRAVEL_ALERT_SERVICE_KEY;
+  const endpoint = process.env.MOFA_TRAVEL_ALERT_ENDPOINT;
+
+  if (!serviceKey || !endpoint) {
+    return res.status(503).json({
+      error: "MOFA_TRAVEL_ALERT_SERVICE_KEY 또는 MOFA_TRAVEL_ALERT_ENDPOINT가 설정되지 않았습니다.",
+    });
+  }
+
+  try {
+    const url = `${endpoint}?serviceKey=${encodeURIComponent(serviceKey)}&numOfRows=10&pageNo=1&cond[country_nm::EQ]=${encodeURIComponent(
+      "일본"
+    )}&_type=json`;
+    const response = await fetch(url);
+    const bodyText = await response.text();
+
+    if (!response.ok) {
+      console.error(`data.go.kr API 응답 오류 (${response.status}):`, bodyText.slice(0, 500));
+      throw new Error(`data.go.kr API 응답 오류: ${response.status}`);
+    }
+
+    let raw: any;
+    try {
+      raw = JSON.parse(bodyText);
+    } catch {
+      // 오퍼레이션명이 틀리면 JSON 대신 XML 에러가 오는 경우가 많음 - 로그로 원인 확인 가능
+      console.error("data.go.kr 응답이 JSON이 아닙니다 (오퍼레이션명 확인 필요):", bodyText.slice(0, 500));
+      throw new Error("data.go.kr 응답 파싱 실패 - 오퍼레이션명을 확인해주세요.");
+    }
+
+    // data.go.kr 응답 포맷은 서비스마다 다를 수 있어 최대한 방어적으로 파싱
+    const items =
+      raw?.response?.body?.items?.item ||
+      raw?.body?.items ||
+      raw?.items ||
+      [];
+    const itemList = Array.isArray(items) ? items : [items].filter(Boolean);
+    const japan = itemList.find((it: any) => it.country_nm === "일본") || itemList[0] || null;
+
+    const resultData = {
+      country: japan?.country_nm || "일본",
+      alarmLevel: japan?.current_travel_alarm || japan?.alarm_lvl || null,
+      fetchedAt: new Date().toISOString(),
+      raw: japan,
+    };
+
+    travelAlertCache = { data: resultData, timestamp: now };
+    res.json(resultData);
+  } catch (error) {
+    console.error("MOFA travel alert fetch failed:", error);
+    res.status(502).json({ error: "여행경보 정보를 가져오지 못했습니다." });
+  }
+});
+
 // AI Osaka Travel Concierge endpoint (with resilient model cascading and travel fallback)
 app.post("/api/ai/ask", async (req, res) => {
   const { question, context } = req.body;

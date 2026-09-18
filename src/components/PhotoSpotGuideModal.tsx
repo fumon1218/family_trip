@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Camera,
@@ -10,7 +10,10 @@ import {
   ChevronRight,
   ShieldAlert,
   Users,
+  Sun,
+  RefreshCw,
 } from 'lucide-react';
+import { fetchOsakaSunTimes, formatJstTime, SunTimes } from '../utils/liveDataService';
 
 interface PhotoSpotGuideModalProps {
   isOpen: boolean;
@@ -139,6 +142,24 @@ export const PhotoSpotGuideModal: React.FC<PhotoSpotGuideModalProps> = ({
 }) => {
   const [selectedTag, setSelectedTag] = useState<string>('전체');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [sunTimes, setSunTimes] = useState<SunTimes | null>(null);
+  const [sunLoading, setSunLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      setSunLoading(true);
+      const result = await fetchOsakaSunTimes();
+      if (!cancelled) {
+        setSunTimes(result);
+        setSunLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -205,6 +226,48 @@ export const PhotoSpotGuideModal: React.FC<PhotoSpotGuideModalProps> = ({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 text-slate-800">
+          {/* Live Sunset / Golden Hour Widget (sunrise-sunset.org API, no key required) */}
+          <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-400 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Sun className="w-4.5 h-4.5" />
+              </div>
+              <div className="text-xs">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-black text-amber-950">오늘 오사카 골든아워</span>
+                  <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-mono font-bold">
+                    실시간 연동
+                  </span>
+                </div>
+                {sunLoading ? (
+                  <p className="text-amber-800 mt-0.5">일몰 시각을 확인하는 중...</p>
+                ) : sunTimes ? (
+                  <p className="text-amber-900 mt-0.5">
+                    일몰{' '}
+                    <span className="font-extrabold">{formatJstTime(sunTimes.sunsetJst)}</span> (일본시간) · 골든아워{' '}
+                    <span className="font-extrabold">
+                      {formatJstTime(sunTimes.goldenHourStartJst)}~{formatJstTime(sunTimes.goldenHourEndJst)}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-amber-700 mt-0.5">일몰 정보를 불러오지 못했습니다.</p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                setSunLoading(true);
+                setSunTimes(await fetchOsakaSunTimes());
+                setSunLoading(false);
+              }}
+              className="p-1.5 rounded-xl border border-amber-300 bg-white/70 hover:bg-white text-amber-700 cursor-pointer"
+              title="새로고침"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${sunLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
           {/* Spots Grid */}
           <div className="space-y-3">
             {filteredSpots.map((spot) => (

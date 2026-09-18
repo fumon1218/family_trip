@@ -12,6 +12,7 @@ import {
   Sparkles,
   Percent,
 } from 'lucide-react';
+import { fetchLiveExchangeRate } from '../utils/liveDataService';
 
 interface DutyFreeCalcModalProps {
   isOpen: boolean;
@@ -61,9 +62,26 @@ export const DutyFreeCalcModal: React.FC<DutyFreeCalcModalProps> = ({ isOpen, on
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
-  const [exchangeRate] = useState(9.2); // 1 JPY = 9.2 KRW
+  const [exchangeRate, setExchangeRate] = useState(9.2); // 1 JPY = 9.2 KRW (실시간 조회 전 기본값)
+  const [isLiveRate, setIsLiveRate] = useState(false);
   const [copiedCoupon, setCopiedCoupon] = useState(false);
   const [copiedList, setCopiedList] = useState(false);
+
+  // 모달을 열 때마다 실시간 환율 1회 자동 조회 (open.er-api.com, 키 불필요)
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      const live = await fetchLiveExchangeRate();
+      if (live && !cancelled) {
+        setExchangeRate(live.jpyToKrw);
+        setIsLiveRate(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     try {
@@ -487,7 +505,7 @@ export const DutyFreeCalcModal: React.FC<DutyFreeCalcModalProps> = ({ isOpen, on
         {/* Footer */}
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
           <div className="text-xs text-slate-500">
-            적용 환율: 100엔 = {exchangeRate * 10}원
+            적용 환율: 100엔 = {Math.round(exchangeRate * 100)}원 {isLiveRate && <span className="text-emerald-600 font-bold">(실시간)</span>}
           </div>
           <button
             onClick={onClose}

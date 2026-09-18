@@ -23,6 +23,9 @@ import {
 import { ScheduleItem, Accommodation, WeatherData } from '../types';
 import { TimelineDiagram } from './TimelineDiagram';
 import { WeatherAlertBanner } from './WeatherAlertBanner';
+import { EarthquakeAlertBanner } from './EarthquakeAlertBanner';
+import { JapanHolidayBanner } from './JapanHolidayBanner';
+import { TravelAlertBanner } from './TravelAlertBanner';
 
 interface ItineraryTabProps {
   schedule: ScheduleItem[];
@@ -163,6 +166,15 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
           )}
         </div>
       )}
+
+      {/* Earthquake & Tsunami Safety Banner (P2PQuake API, no key required) */}
+      <EarthquakeAlertBanner />
+
+      {/* MOFA Travel Alert Level for Japan (data.go.kr, requires server-side key - hidden if unavailable) */}
+      <TravelAlertBanner />
+
+      {/* Upcoming Japan Public Holiday Notice (Nager.Date API, no key required) */}
+      <JapanHolidayBanner />
 
       {/* Weather Rain Notification Banner */}
       <WeatherAlertBanner

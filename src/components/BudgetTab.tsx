@@ -22,6 +22,7 @@ import {
 import { initialBudgetData } from '../data/guidebookData';
 import { BudgetItem, PaymentStatus } from '../types';
 import { BudgetReportModal } from './BudgetReportModal';
+import { fetchLiveExchangeRate } from '../utils/liveDataService';
 
 const BUDGET_STORAGE_KEY = 'osaka_family_budget_data_v2';
 
@@ -43,8 +44,25 @@ export const BudgetTab: React.FC = () => {
     return initialBudgetData;
   });
 
-  const [exchangeRate, setExchangeRate] = useState<number>(9.2); // 1 JPY = 9.2 KRW (100엔 = 920원)
+  const [exchangeRate, setExchangeRate] = useState<number>(9.2); // 1 JPY = 9.2 KRW (100엔 = 920원, 실시간 조회 전 기본값)
+  const [isLiveRate, setIsLiveRate] = useState(false);
+  const [rateLoading, setRateLoading] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+
+  const refreshLiveRate = React.useCallback(async () => {
+    setRateLoading(true);
+    const live = await fetchLiveExchangeRate();
+    if (live) {
+      setExchangeRate(live.jpyToKrw);
+      setIsLiveRate(true);
+    }
+    setRateLoading(false);
+  }, []);
+
+  // 최초 진입 시 실시간 환율 1회 자동 조회 (open.er-api.com, 키 불필요)
+  useEffect(() => {
+    refreshLiveRate();
+  }, [refreshLiveRate]);
 
   // Save changes to localStorage
   useEffect(() => {
@@ -309,20 +327,37 @@ export const BudgetTab: React.FC = () => {
 
       {/* Currency Converter (엔화 <-> 원화 실시간 계산기) */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-1.5">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
             <ArrowRightLeft className="w-4 h-4 text-blue-600" />
             <span>실시간 엔화-원화 환율 계산기</span>
+            {isLiveRate && (
+              <span className="text-[9px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">
+                LIVE
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-slate-500 flex items-center gap-1">
             <span>환율: 100엔 =</span>
             <input
               type="number"
               value={Math.round(exchangeRate * 100)}
-              onChange={(e) => setExchangeRate(parseFloat(e.target.value) / 100 || 9.2)}
+              onChange={(e) => {
+                setExchangeRate(parseFloat(e.target.value) / 100 || 9.2);
+                setIsLiveRate(false);
+              }}
               className="w-14 text-center border border-slate-300 rounded px-1 py-0.5 font-mono text-xs"
             />
             <span>원</span>
+            <button
+              type="button"
+              onClick={refreshLiveRate}
+              disabled={rateLoading}
+              className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[10px] disabled:opacity-50 cursor-pointer"
+              title="실시간 환율 새로고침 (open.er-api.com)"
+            >
+              {rateLoading ? '조회중' : '실시간 갱신'}
+            </button>
           </div>
         </div>
 

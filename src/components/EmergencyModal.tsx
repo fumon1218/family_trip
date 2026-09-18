@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, PhoneCall, ShieldAlert, MapPin, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 import { emergencyContacts } from '../data/guidebookData';
+import { NearbyMedicalFinder } from './NearbyMedicalFinder';
 
 interface EmergencyModalProps {
   isOpen: boolean;
@@ -60,6 +61,9 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose 
               </div>
             </a>
           </div>
+
+          {/* Nearby Hospital / Pharmacy Finder (Overpass API, no key required) */}
+          <NearbyMedicalFinder />
 
           {/* Consulate Contacts */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
