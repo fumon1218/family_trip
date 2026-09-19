@@ -7,7 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
@@ -237,6 +237,48 @@ app.get("/api/travel-alert", async (_req, res) => {
   } catch (error) {
     console.error("MOFA travel alert fetch failed:", error);
     res.status(502).json({ error: "여행경보 정보를 가져오지 못했습니다." });
+  }
+});
+
+// 실시간 항공편 검색 프록시 (Aviationstack, 무료 플랜 월 500회 - 키 필요)
+let flightSearchCache: Map<string, { data: any; timestamp: number }> = new Map();
+
+app.get("/api/flight-search", async (req, res) => {
+  const flightNo = String(req.query.flightNo || "").trim().toUpperCase();
+  if (!flightNo) {
+    return res.status(400).json({ error: "flightNo 쿼리 파라미터가 필요합니다. 예: /api/flight-search?flightNo=KE723" });
+  }
+
+  const apiKey = process.env.AVIATIONSTACK_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: "AVIATIONSTACK_API_KEY가 설정되지 않았습니다." });
+  }
+
+  const now = Date.now();
+  const cached = flightSearchCache.get(flightNo);
+  // 2분 캐시 (무료 플랜 월 요청 한도를 아끼기 위함)
+  if (cached && now - cached.timestamp < 2 * 60 * 1000) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const url = `https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(
+      apiKey
+    )}&flight_iata=${encodeURIComponent(flightNo)}`;
+    const response = await fetch(url);
+    const raw = await response.json();
+
+    if (raw.error) {
+      // Aviationstack은 쿼리 실패 시에도 200을 주고 error 필드로 알려주는 경우가 많음
+      return res.status(502).json({ error: raw.error.message || raw.error.info || "Aviationstack API 오류" });
+    }
+
+    const resultData = { flights: raw.data || [] };
+    flightSearchCache.set(flightNo, { data: resultData, timestamp: now });
+    res.json(resultData);
+  } catch (error) {
+    console.error("Flight search failed:", error);
+    res.status(502).json({ error: "항공편 정보를 가져오지 못했습니다." });
   }
 });
 
