@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Clock,
   MapPin,
@@ -312,7 +312,42 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
   }, [selectedDay]);
 
   // Dynamic Time Axis Bound Calculation (09:00 ~ 20:00 without dead empty margins)
-  const [manualRange, setManualRange] = useState<{ start: number; end: number } | null>(null);
+  // 사용자가 직접 설정한 표시 확대 범위는 일차별로 localStorage에 저장해 탭 이동/재접속 후에도 유지됩니다.
+  const MANUAL_RANGE_STORAGE_KEY = 'osaka_timeline_manual_range_v1';
+
+  const loadManualRanges = (): Record<number, { start: number; end: number }> => {
+    try {
+      const raw = localStorage.getItem(MANUAL_RANGE_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const [manualRange, setManualRangeState] = useState<{ start: number; end: number } | null>(
+    () => loadManualRanges()[selectedDay] ?? null
+  );
+
+  // 일차 탭을 바꾸면 그 일차에 저장된 표시 범위를 불러옵니다 (없으면 자동 계산으로).
+  useEffect(() => {
+    setManualRangeState(loadManualRanges()[selectedDay] ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay]);
+
+  const setManualRange = (range: { start: number; end: number } | null) => {
+    setManualRangeState(range);
+    const all = loadManualRanges();
+    if (range) {
+      all[selectedDay] = range;
+    } else {
+      delete all[selectedDay];
+    }
+    try {
+      localStorage.setItem(MANUAL_RANGE_STORAGE_KEY, JSON.stringify(all));
+    } catch {
+      // ignore storage errors
+    }
+  };
 
   const { startHour, endHour, totalHours } = useMemo(() => {
     if (manualRange) {
@@ -551,7 +586,7 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
             <div className="bg-white border border-slate-200 p-2.5 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs shadow-2xs">
               <div className="flex items-center gap-1.5 text-slate-600 font-semibold flex-wrap">
                 <Clock className="w-4 h-4 text-slate-700 shrink-0" />
-                <span>시간 범위:</span>
+                <span>표시 확대 범위:</span>
                 <input
                   type="time"
                   value={decimalToTime(Math.min(startHour, 23.98))}
@@ -587,7 +622,7 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
                   </button>
                 ) : (
                   <span className="text-[11px] text-slate-400 hidden sm:inline">
-                    (직접 수정 가능 · 지금은 자동 계산된 범위)
+                    (도표를 얼마나 확대해서 볼지 정하는 값이에요 · 실제 일정 시간은 안 바뀝니다)
                   </span>
                 )}
               </div>
