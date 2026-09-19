@@ -174,6 +174,30 @@ app.get("/api/weather", async (_req, res) => {
   }
 });
 
+// USJ 실시간 대기시간 프록시 (Queue-Times.com API - 브라우저 직접 호출 시 CORS 차단되어 서버 경유 필요)
+let usjWaitTimesCache: { data: any; timestamp: number } | null = null;
+
+app.get("/api/usj-wait-times", async (_req, res) => {
+  const now = Date.now();
+  // 3분 캐시 (원본 데이터가 약 5분 간격 갱신)
+  if (usjWaitTimesCache && now - usjWaitTimesCache.timestamp < 3 * 60 * 1000) {
+    return res.json(usjWaitTimesCache.data);
+  }
+
+  try {
+    const response = await fetch("https://queue-times.com/parks/284/queue_times.json");
+    if (!response.ok) {
+      throw new Error(`Queue-Times API 응답 오류: ${response.status}`);
+    }
+    const data = await response.json();
+    usjWaitTimesCache = { data, timestamp: now };
+    res.json(data);
+  } catch (error) {
+    console.error("USJ wait times fetch failed:", error);
+    res.status(502).json({ error: "USJ 대기시간 정보를 가져오지 못했습니다." });
+  }
+});
+
 // 외교부 해외안전여행 - 국가·지역별 여행경보 프록시 (data.go.kr, 키가 있어야 동작)
 // Base URL은 확인됨: https://apis.data.go.kr/1262000/CountryHistoryService2
 // 오퍼레이션명은 미확인 상태 - .env의 MOFA_TRAVEL_ALERT_ENDPOINT에서 조정 가능
