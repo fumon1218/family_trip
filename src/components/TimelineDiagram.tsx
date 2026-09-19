@@ -312,7 +312,16 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
   }, [selectedDay]);
 
   // Dynamic Time Axis Bound Calculation (09:00 ~ 20:00 without dead empty margins)
+  const [manualRange, setManualRange] = useState<{ start: number; end: number } | null>(null);
+
   const { startHour, endHour, totalHours } = useMemo(() => {
+    if (manualRange) {
+      return {
+        startHour: manualRange.start,
+        endHour: manualRange.end,
+        totalHours: manualRange.end - manualRange.start,
+      };
+    }
     if (baseSchedule.length === 0) return { startHour: 9, endHour: 20, totalHours: 11 };
     let minT = 24;
     let maxT = 0;
@@ -339,7 +348,7 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
       endHour: end,
       totalHours: end - start,
     };
-  }, [baseSchedule, activeTransits]);
+  }, [baseSchedule, activeTransits, manualRange]);
 
   // Hours ruler array for headers and guidelines
   const hoursRuler = useMemo(() => {
@@ -540,15 +549,47 @@ export const TimelineDiagram: React.FC<TimelineDiagramProps> = ({
           <div className="space-y-4">
             {/* Legend info bar */}
             <div className="bg-white border border-slate-200 p-2.5 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
-                <Clock className="w-4 h-4 text-slate-700" />
+              <div className="flex items-center gap-1.5 text-slate-600 font-semibold flex-wrap">
+                <Clock className="w-4 h-4 text-slate-700 shrink-0" />
                 <span>시간 범위:</span>
-                <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">
-                  {decimalToTime(startHour)} ~ {decimalToTime(endHour)}
-                </span>
-                <span className="text-[11px] text-slate-400 hidden sm:inline">
-                  (이벤트 없는 빈 앞뒤 시간대는 자동 제외하여 블록 확대)
-                </span>
+                <input
+                  type="time"
+                  value={decimalToTime(Math.min(startHour, 23.98))}
+                  onChange={(e) => {
+                    const newStart = timeToDecimal(e.target.value);
+                    setManualRange({
+                      start: newStart,
+                      end: manualRange ? Math.max(manualRange.end, newStart + 1) : Math.max(endHour, newStart + 1),
+                    });
+                  }}
+                  className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 cursor-pointer"
+                />
+                <span>~</span>
+                <input
+                  type="time"
+                  value={decimalToTime(Math.min(endHour, 23.98))}
+                  onChange={(e) => {
+                    const newEnd = timeToDecimal(e.target.value);
+                    setManualRange({
+                      start: manualRange ? Math.min(manualRange.start, newEnd - 1) : Math.min(startHour, newEnd - 1),
+                      end: newEnd,
+                    });
+                  }}
+                  className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 cursor-pointer"
+                />
+                {manualRange ? (
+                  <button
+                    type="button"
+                    onClick={() => setManualRange(null)}
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md cursor-pointer"
+                  >
+                    자동으로 되돌리기
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-slate-400 hidden sm:inline">
+                    (직접 수정 가능 · 지금은 자동 계산된 범위)
+                  </span>
+                )}
               </div>
 
               {/* Category Color legend */}
