@@ -19,6 +19,7 @@ import {
   BarChart3,
   Layers,
   GitCommit,
+  Pencil,
 } from 'lucide-react';
 import { ScheduleItem, Accommodation, WeatherData } from '../types';
 import { TimelineDiagram } from './TimelineDiagram';
@@ -26,12 +27,15 @@ import { WeatherAlertBanner } from './WeatherAlertBanner';
 import { EarthquakeAlertBanner } from './EarthquakeAlertBanner';
 import { JapanHolidayBanner } from './JapanHolidayBanner';
 import { TravelAlertBanner } from './TravelAlertBanner';
+import { ScheduleItemEditorModal } from './ScheduleItemEditorModal';
 
 interface ItineraryTabProps {
   schedule: ScheduleItem[];
   onToggleComplete: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
   onResetSchedule: () => void;
+  onSaveScheduleItem?: (item: ScheduleItem) => void;
+  onDeleteScheduleItem?: (id: string) => void;
   onOpenUsj?: () => void;
   onOpenWeather?: () => void;
   onOpenTaxi?: () => void;
@@ -53,6 +57,8 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
   onToggleComplete,
   onAddNote,
   onResetSchedule,
+  onSaveScheduleItem,
+  onDeleteScheduleItem,
   onOpenUsj,
   onOpenWeather,
   onOpenTaxi,
@@ -77,6 +83,8 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [tempNote, setTempNote] = useState<string>('');
   const [showShareSuccess, setShowShareSuccess] = useState<boolean>(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingScheduleItem, setEditingScheduleItem] = useState<ScheduleItem | null>(null);
 
   // 큐레이션된 세부 일정은 1~3일차 기준입니다. 여행 기간이 3일보다 짧으면 남는 일정(3일차 등)을
   // 마지막 날에 합쳐서 보여주고, 3일보다 길면 4일차부터는 빈 자유 일정 날로 둡니다.
@@ -460,6 +468,16 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => {
+              setEditingScheduleItem(null);
+              setEditorOpen(true);
+            }}
+            className="flex items-center gap-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1.5 rounded-lg shadow-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>일정 추가</span>
+          </button>
+          <button
             onClick={handleCopyFamilyPlan}
             className="flex items-center gap-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg shadow-xs transition-colors"
           >
@@ -568,6 +586,16 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
                   ) : (
                     <Circle className="w-5 h-5" />
                   )}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingScheduleItem(item);
+                    setEditorOpen(true);
+                  }}
+                  className="text-slate-300 hover:text-emerald-600 transition-colors p-1 cursor-pointer"
+                  title="일정 수정"
+                >
+                  <Pencil className="w-4 h-4" />
                 </button>
               </div>
 
@@ -689,6 +717,17 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
       </div>
     </div>
   )}
+
+      {/* Schedule Item Add/Edit Modal */}
+      <ScheduleItemEditorModal
+        isOpen={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        onSave={(item) => onSaveScheduleItem?.(item)}
+        onDelete={(id) => onDeleteScheduleItem?.(id)}
+        tripDays={tripDays}
+        defaultDay={selectedDay === 0 ? 1 : selectedDay}
+        editingItem={editingScheduleItem}
+      />
 </div>
   );
 };

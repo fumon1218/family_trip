@@ -130,6 +130,20 @@ export default function App() {
     );
   };
 
+  const handleSaveScheduleItem = (item: ScheduleItem) => {
+    setSchedule((prev) => {
+      const exists = prev.some((s) => s.id === item.id);
+      if (exists) {
+        return prev.map((s) => (s.id === item.id ? item : s));
+      }
+      return [...prev, item];
+    });
+  };
+
+  const handleDeleteScheduleItem = (id: string) => {
+    setSchedule((prev) => prev.filter((s) => s.id !== id));
+  };
+
   const handleSelectAccommodation = (hotel: Accommodation) => {
     setSelectedAccommodation(hotel);
     try {
@@ -252,6 +266,8 @@ export default function App() {
             onToggleComplete={handleToggleComplete}
             onAddNote={handleAddNote}
             onResetSchedule={handleResetSchedule}
+            onSaveScheduleItem={handleSaveScheduleItem}
+            onDeleteScheduleItem={handleDeleteScheduleItem}
             onOpenUsj={() => setUsjModalOpen(true)}
             onOpenWeather={() => setWeatherRainyModalOpen(true)}
             onOpenTaxi={() => setTaxiModalOpen(true)}
