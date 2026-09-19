@@ -47,6 +47,7 @@ const FLIGHTS: FlightItem[] = [
   { id: 'tw281', airline: '티웨이항공', flightNo: 'TW281', aircraft: 'A330-300', carrierType: 'LCC', depTime: '08:05', depCity: '인천', depCode: 'ICN', depTerminal: 'T1', arrTime: '09:50', arrCity: '오사카 간사이', arrCode: 'KIX', arrTerminal: 'T1', durationMin: 105, direction: 'to_osaka', status: '정시 출발 예정' },
   { id: 'rs611', airline: '에어서울', flightNo: 'RS611', aircraft: 'A321neo', carrierType: 'LCC', depTime: '10:30', depCity: '인천', depCode: 'ICN', depTerminal: 'T1', arrTime: '12:15', arrCity: '오사카 간사이', arrCode: 'KIX', arrTerminal: 'T1', durationMin: 105, direction: 'to_osaka', status: '정시 출발 예정' },
   { id: 'bx122', airline: '에어부산', flightNo: 'BX122', aircraft: 'A321neo', carrierType: 'LCC', depTime: '11:10', depCity: '부산', depCode: 'PUS', depTerminal: '국제선', arrTime: '12:40', arrCity: '오사카 간사이', arrCode: 'KIX', arrTerminal: 'T1', durationMin: 90, direction: 'to_osaka', status: '정시 출발 예정' },
+  { id: '7c1306', airline: '제주항공', flightNo: '7C1306', aircraft: 'B737-800', carrierType: 'LCC', depTime: '09:40', depCity: '부산', depCode: 'PUS', depTerminal: '국제선', arrTime: '11:05', arrCity: '오사카 간사이', arrCode: 'KIX', arrTerminal: 'T1', durationMin: 85, direction: 'to_osaka', status: '정시 출발 예정' },
   { id: 'mm123', airline: '피치항공', flightNo: 'MM123', aircraft: 'A320', carrierType: 'LCC', depTime: '13:20', depCity: '인천', depCode: 'ICN', depTerminal: 'T1', arrTime: '15:05', arrCity: '오사카 간사이', arrCode: 'KIX', arrTerminal: 'T2', durationMin: 105, direction: 'to_osaka', status: '정시 출발 예정' },
 
   // 오사카 간사이(KIX) → 인천(ICN) 귀국편
@@ -55,6 +56,7 @@ const FLIGHTS: FlightItem[] = [
   { id: '7c1305', airline: '제주항공', flightNo: '7C1305', aircraft: 'B737-800', carrierType: 'LCC', depTime: '10:05', depCity: '오사카 간사이', depCode: 'KIX', depTerminal: 'T1', arrTime: '11:50', arrCity: '인천', arrCode: 'ICN', arrTerminal: 'T1', durationMin: 105, direction: 'to_korea', status: '정시 출발 예정' },
   { id: 'lj302', airline: '진에어', flightNo: 'LJ302', aircraft: 'B737-800', carrierType: 'LCC', depTime: '12:40', depCity: '오사카 간사이', depCode: 'KIX', depTerminal: 'T1', arrTime: '14:25', arrCity: '인천', arrCode: 'ICN', arrTerminal: 'T2', durationMin: 105, direction: 'to_korea', status: '정시 출발 예정' },
   { id: 'mm124', airline: '피치항공', flightNo: 'MM124', aircraft: 'A320', carrierType: 'LCC', depTime: '16:10', depCity: '오사카 간사이', depCode: 'KIX', depTerminal: 'T2', arrTime: '18:00', arrCity: '인천', arrCode: 'ICN', arrTerminal: 'T1', durationMin: 110, direction: 'to_korea', status: '정시 출발 예정' },
+  { id: 'bx121', airline: '에어부산', flightNo: 'BX121', aircraft: 'A321neo', carrierType: 'LCC', depTime: '13:35', depCity: '오사카 간사이', depCode: 'KIX', depTerminal: 'T1', arrTime: '15:20', arrCity: '부산', arrCode: 'PUS', arrTerminal: '국제선', durationMin: 105, direction: 'to_korea', status: '정시 출발 예정' },
 ];
 
 interface LiveFlightEndpoint {
@@ -99,6 +101,7 @@ function formatDuration(min: number): string {
 
 export const FlightScheduleModal: React.FC<FlightScheduleModalProps> = ({ isOpen, onClose }) => {
   const [direction, setDirection] = useState<Direction>('to_osaka');
+  const [koreaAirport, setKoreaAirport] = useState<'all' | 'ICN' | 'PUS'>('all');
   const [carrierFilter, setCarrierFilter] = useState<'all' | CarrierType>('all');
   const [query, setQuery] = useState('');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -147,6 +150,10 @@ export const FlightScheduleModal: React.FC<FlightScheduleModalProps> = ({ isOpen
   const filtered = FLIGHTS.filter((f) => {
     if (f.direction !== direction) return false;
     if (carrierFilter !== 'all' && f.carrierType !== carrierFilter) return false;
+    if (koreaAirport !== 'all') {
+      const koreaCode = direction === 'to_osaka' ? f.depCode : f.arrCode;
+      if (koreaCode !== koreaAirport) return false;
+    }
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       const hay = `${f.flightNo} ${f.airline}`.toLowerCase();
@@ -167,7 +174,7 @@ export const FlightScheduleModal: React.FC<FlightScheduleModalProps> = ({ isOpen
             <div>
               <h2 className="text-base sm:text-lg font-bold">한·일 항공편 & 비행기 노선</h2>
               <p className="text-xs text-sky-100 leading-relaxed">
-                인천·김포·부산 ↔ 오사카 간사이(KIX) 직항 전 항공편 정기 스케줄
+                인천·부산 ↔ 오사카 간사이(KIX) 직항 전 항공편 정기 스케줄
               </p>
             </div>
           </div>
@@ -189,8 +196,8 @@ export const FlightScheduleModal: React.FC<FlightScheduleModalProps> = ({ isOpen
                 : 'text-slate-500 hover:bg-slate-50'
             }`}
           >
-            인천 (ICN) → 오사카 (KIX)
-            <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full">인천 출발</span>
+            한국 → 오사카 (KIX)
+            <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full">출국편</span>
           </button>
           <button
             onClick={() => setDirection('to_korea')}
@@ -200,9 +207,36 @@ export const FlightScheduleModal: React.FC<FlightScheduleModalProps> = ({ isOpen
                 : 'text-slate-500 hover:bg-slate-50'
             }`}
           >
-            오사카 (KIX) → 인천 (ICN)
+            오사카 (KIX) → 한국
             <span className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">귀국편</span>
           </button>
+        </div>
+
+        {/* Korea Airport Selector */}
+        <div className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 border-b border-slate-200 shrink-0">
+          <span className="text-[11px] font-bold text-slate-500 shrink-0">
+            {direction === 'to_osaka' ? '출발 공항:' : '도착 공항:'}
+          </span>
+          {(
+            [
+              { key: 'all', label: '전체' },
+              { key: 'ICN', label: '인천 (ICN)' },
+              { key: 'PUS', label: '부산 (PUS)' },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setKoreaAirport(opt.key)}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                koreaAirport === opt.key
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          <span className="ml-auto text-[10px] text-slate-400">김포(GMP)는 간사이 직항이 없어 제외했습니다</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
