@@ -7,7 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
@@ -171,6 +171,30 @@ app.get("/api/weather", async (_req, res) => {
         { day: "3일차 (오사카성 & 출국)", tempMin: 18, tempMax: 27, condition: "구름 조금", icon: "cloud-sun", rainProb: "20%", rainProbNumber: 20, tip: "오사카성 공원 산책 후 우메다 쇼핑에 적합합니다." },
       ],
     });
+  }
+});
+
+// USJ 실시간 대기시간 프록시 (Queue-Times.com API - 브라우저 직접 호출 시 CORS 차단되어 서버 경유 필요)
+let usjWaitTimesCache: { data: any; timestamp: number } | null = null;
+
+app.get("/api/usj-wait-times", async (_req, res) => {
+  const now = Date.now();
+  // 3분 캐시 (원본 데이터가 약 5분 간격 갱신)
+  if (usjWaitTimesCache && now - usjWaitTimesCache.timestamp < 3 * 60 * 1000) {
+    return res.json(usjWaitTimesCache.data);
+  }
+
+  try {
+    const response = await fetch("https://queue-times.com/parks/284/queue_times.json");
+    if (!response.ok) {
+      throw new Error(`Queue-Times API 응답 오류: ${response.status}`);
+    }
+    const data = await response.json();
+    usjWaitTimesCache = { data, timestamp: now };
+    res.json(data);
+  } catch (error) {
+    console.error("USJ wait times fetch failed:", error);
+    res.status(502).json({ error: "USJ 대기시간 정보를 가져오지 못했습니다." });
   }
 });
 

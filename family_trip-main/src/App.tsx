@@ -18,6 +18,7 @@ import { AirportDepartureModal } from './components/AirportDepartureModal';
 import { FlightScheduleModal } from './components/FlightScheduleModal';
 import { PhotoSpotGuideModal } from './components/PhotoSpotGuideModal';
 import { AccommodationModal } from './components/AccommodationModal';
+import { TripSettingsModal, TripSettings } from './components/TripSettingsModal';
 import { initialScheduleData, osakaAccommodations, applyAccommodationToSchedule } from './data/guidebookData';
 import { TabType, ScheduleItem, WeatherData, Accommodation } from './types';
 import { fetchOsakaWeather } from './utils/weatherService';
@@ -37,7 +38,28 @@ export default function App() {
   const [flightScheduleModalOpen, setFlightScheduleModalOpen] = useState(false);
   const [photoSpotsModalOpen, setPhotoSpotsModalOpen] = useState(false);
   const [accommodationModalOpen, setAccommodationModalOpen] = useState(false);
+  const [tripSettingsModalOpen, setTripSettingsModalOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
+
+  // Trip Settings (start date + total days), persisted
+  const [tripSettings, setTripSettings] = useState<TripSettings>(() => {
+    try {
+      const saved = localStorage.getItem('osaka_trip_settings');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return { startDate: new Date().toISOString().slice(0, 10), days: 3 };
+  });
+
+  const handleSaveTripSettings = (settings: TripSettings) => {
+    setTripSettings(settings);
+    try {
+      localStorage.setItem('osaka_trip_settings', JSON.stringify(settings));
+    } catch {
+      // ignore
+    }
+  };
 
   // Selected Accommodation State (persisted)
   const [selectedAccommodation, setSelectedAccommodation] = useState<Accommodation>(() => {
@@ -157,6 +179,8 @@ export default function App() {
           onOpenPhotoSpots={() => setPhotoSpotsModalOpen(true)}
           selectedHotel={selectedAccommodation}
           onOpenAccommodationModal={() => setAccommodationModalOpen(true)}
+          tripDays={tripSettings.days}
+          onOpenTripSettings={() => setTripSettingsModalOpen(true)}
         />
         <TabBar currentTab={currentTab} onSelectTab={setCurrentTab} />
       </header>
@@ -242,6 +266,7 @@ export default function App() {
             rainSimulationDay={rainSimulationDay}
             onSetRainSimulationDay={setRainSimulationDay}
             onRefreshWeather={loadWeather}
+            tripDays={tripSettings.days}
           />
         )}
 
@@ -292,6 +317,14 @@ export default function App() {
         onClose={() => setAccommodationModalOpen(false)}
         selectedHotel={selectedAccommodation}
         onSelectHotel={handleSelectAccommodation}
+      />
+
+      {/* 0b. Trip Duration & Dates Settings Modal */}
+      <TripSettingsModal
+        isOpen={tripSettingsModalOpen}
+        onClose={() => setTripSettingsModalOpen(false)}
+        tripSettings={tripSettings}
+        onSave={handleSaveTripSettings}
       />
 
       {/* 1. Taxi Driver Destination Card Modal */}

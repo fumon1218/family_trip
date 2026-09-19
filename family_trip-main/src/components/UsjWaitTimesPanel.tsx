@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, RefreshCw, AlertCircle, Ban, Timer, TrendingDown, TrendingUp } from 'lucide-react';
 
-// Queue-Times.com 공개 API - 키 발급 불필요. Universal Studios Japan park_id = 284
-// (https://queue-times.com/parks.json 에서 확인됨). 데이터는 약 5분 간격으로 갱신됨.
-const USJ_PARK_ID = 284;
-const QUEUE_TIMES_ENDPOINT = `https://queue-times.com/parks/${USJ_PARK_ID}/queue_times.json`;
+// USJ 실시간 대기시간은 server.ts의 /api/usj-wait-times 프록시를 거칩니다
+// (Queue-Times.com이 브라우저 직접 호출 시 CORS를 차단하기 때문에 서버 경유가 필요합니다)
+const QUEUE_TIMES_ENDPOINT = '/api/usj-wait-times';
 
 interface QueueRide {
   id: number;

@@ -37,6 +37,8 @@ interface NavbarProps {
   onOpenPhotoSpots?: () => void;
   selectedHotel?: Accommodation;
   onOpenAccommodationModal?: () => void;
+  tripDays?: number;
+  onOpenTripSettings?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -55,14 +57,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenPhotoSpots,
   selectedHotel,
   onOpenAccommodationModal,
+  tripDays = 3,
+  onOpenTripSettings,
 }) => {
   const [copied, setCopied] = React.useState(false);
 
   const handleShare = () => {
+    const nights = Math.max(tripDays - 1, 0);
     if (navigator.share) {
       navigator.share({
         title: '오사카 4인 가족 완벽 여행 가이드북',
-        text: '오사카 4인 가족 2박 3일 맞춤 일정, USJ 공략, 맛집 및 실시간 노선도 가이드',
+        text: `오사카 4인 가족 ${nights}박${tripDays}일 맞춤 일정, USJ 공략, 맛집 및 실시간 노선도 가이드`,
         url: window.location.href,
       }).catch(() => {});
     } else {
@@ -83,8 +88,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               오사카 4인 가족 가이드북
             </h1>
             <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-              2박 3일 USJ 코스
+              {Math.max(tripDays - 1, 0)}박 {tripDays}일 USJ 코스
             </span>
+            {onOpenTripSettings && (
+              <button
+                onClick={onOpenTripSettings}
+                className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 cursor-pointer transition-colors"
+                title="여행 기간 수정하기"
+              >
+                기간 수정
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate mt-0.5">
             <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />

@@ -18,6 +18,7 @@ import {
 import { osakaSpotsData, subwayLinesData, subwayStationsData } from '../data/guidebookData';
 import { SpotInfo, Accommodation } from '../types';
 import { WikiSummaryPanel } from './WikiSummaryPanel';
+import { TransitInfoPanel } from './TransitInfoPanel';
 
 interface MapSubwayTabProps {
   onOpenTaxi?: () => void;
@@ -513,6 +514,9 @@ export const MapSubwayTab: React.FC<MapSubwayTabProps> = ({
               </div>
             ))}
           </div>
+
+          {/* Official Transit App Links & Static First/Last Train Timetable */}
+          <TransitInfoPanel />
         </div>
       )}
     </div>

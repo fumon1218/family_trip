@@ -45,6 +45,7 @@ interface ItineraryTabProps {
   rainSimulationDay?: number | null;
   onSetRainSimulationDay?: (day: number | null) => void;
   onRefreshWeather?: () => void;
+  tripDays?: number;
 }
 
 export const ItineraryTab: React.FC<ItineraryTabProps> = ({
@@ -65,6 +66,7 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
   rainSimulationDay: propRainSimulationDay,
   onSetRainSimulationDay: propOnSetRainSimulationDay,
   onRefreshWeather,
+  tripDays = 3,
 }) => {
   const [internalRainDay, setInternalRainDay] = useState<number | null>(null);
   const rainSimulationDay = propRainSimulationDay !== undefined ? propRainSimulationDay : internalRainDay;
@@ -76,14 +78,18 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
   const [tempNote, setTempNote] = useState<string>('');
   const [showShareSuccess, setShowShareSuccess] = useState<boolean>(false);
 
+  // 큐레이션된 세부 일정은 1~3일차 기준입니다. 여행 기간이 3일보다 짧으면 남는 일정(3일차 등)을
+  // 마지막 날에 합쳐서 보여주고, 3일보다 길면 4일차부터는 빈 자유 일정 날로 둡니다.
+  const getEffectiveDay = (rawDay: number) => Math.min(rawDay, tripDays);
+
   const filteredSchedule = selectedDay === 0
     ? schedule
-    : schedule.filter((item) => item.day === selectedDay);
+    : schedule.filter((item) => getEffectiveDay(item.day) === selectedDay);
 
   const completedCount = filteredSchedule.filter((item) => item.completed).length;
   const progressPercent = Math.round((completedCount / (filteredSchedule.length || 1)) * 100);
 
-  const dayTitles: Record<number, { title: string; subtitle: string; weatherTip: string }> = {
+  const curatedDayTitles: Record<number, { title: string; subtitle: string; weatherTip: string }> = {
     1: {
       title: '1일차: 오사카 입성과 도톤보리의 화려한 밤',
       subtitle: '간사이공항 → 라피트 → 난바 숙소 체크인 → 구로몬 시장 → 도톤보리 글리코상',
@@ -100,6 +106,19 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
       weatherTip: '체력 안배 필수! 오사카성 정문 300엔 전기차를 이용하시고, 오후엔 우메다 다이마루 13층 실내 쇼핑을 즐기세요.',
     },
   };
+
+  // 3일보다 짧은 여행이면 마지막 날에 남는 큐레이션 일정(getEffectiveDay로 이미 병합됨)이 함께 표시되고,
+  // 3일보다 긴 여행이면 4일차 이후는 자유 일정 안내로 채웁니다.
+  const dayTitles: Record<number, { title: string; subtitle: string; weatherTip: string }> = {};
+  for (let d = 1; d <= tripDays; d++) {
+    dayTitles[d] = curatedDayTitles[d] || {
+      title: `${d}일차: 자유 일정`,
+      subtitle: '직접 계획을 채워보세요',
+      weatherTip: '이 날의 날씨를 확인하고 자유롭게 일정을 계획해보세요.',
+    };
+  }
+
+
 
   const getCategoryIcon = (category: ScheduleItem['category']) => {
     switch (category) {
@@ -118,14 +137,15 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
 
   const handleCopyFamilyPlan = () => {
     const textPlan = schedule
-      .filter((s) => selectedDay === 0 || s.day === selectedDay)
+      .filter((s) => selectedDay === 0 || getEffectiveDay(s.day) === selectedDay)
       .map(
         (s) =>
           `[${s.completed ? '완료' : '예정'}] ${s.time} - ${s.title} (${s.location})`
       )
       .join('\n');
 
-    const shareContent = `🗾 [오사카 4인 가족 2박 3일 여행 일정표]\n베이스 숙소: ${selectedHotel?.nameKo || '미마루 오사카 난바 NORTH'}\n\n${textPlan}\n\n* 비상 집결지: [${selectedHotel?.nameKo || '숙소'}] 로비 (경찰 110 / 구급 119)`;
+    const nights = Math.max(tripDays - 1, 0);
+    const shareContent = `🗾 [오사카 4인 가족 ${nights}박${tripDays}일 여행 일정표]\n베이스 숙소: ${selectedHotel?.nameKo || '미마루 오사카 난바 NORTH'}\n\n${textPlan}\n\n* 비상 집결지: [${selectedHotel?.nameKo || '숙소'}] 로비 (경찰 110 / 구급 119)`;
 
     navigator.clipboard.writeText(shareContent);
     setShowShareSuccess(true);
@@ -254,12 +274,22 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
         <div className="space-y-4">
           {/* Top Day Switcher */}
           <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-xl">
+        <div
+          className={`grid gap-1.5 p-1 bg-slate-100 rounded-xl ${tripDays > 4 ? 'overflow-x-auto' : ''}`}
+          style={{
+            gridTemplateColumns:
+              tripDays > 4
+                ? `repeat(${tripDays + 1}, minmax(64px, 1fr))`
+                : `repeat(${tripDays + 1}, minmax(0, 1fr))`,
+          }}
+        >
           {[
-            { day: 1, label: '1일차', sub: '도톤보리' },
-            { day: 2, label: '2일차', sub: 'USJ 완벽' },
-            { day: 3, label: '3일차', sub: '오사카성' },
-            { day: 0, label: '전체', sub: '2박 3일' },
+            ...Array.from({ length: tripDays }, (_, i) => {
+              const d = i + 1;
+              const sub = d === 1 ? '도톤보리' : d === 2 ? 'USJ 완벽' : d === tripDays ? '오사카성' : '자유 일정';
+              return { day: d, label: `${d}일차`, sub };
+            }),
+            { day: 0, label: '전체', sub: `${Math.max(tripDays - 1, 0)}박 ${tripDays}일` },
           ].map((item) => (
             <button
               key={item.day}
@@ -388,8 +418,8 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
               </div>
             )}
 
-            {/* Day 3 Airport Departure Banner */}
-            {selectedDay === 3 && (
+            {/* Day 3 Airport Departure Banner (moves to the actual last day of the trip) */}
+            {selectedDay === tripDays && (
               <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {onOpenAirport && (
                   <button
@@ -456,6 +486,14 @@ export const ItineraryTab: React.FC<ItineraryTabProps> = ({
 
       {/* Schedule Timeline */}
       <div className="space-y-3">
+        {selectedDay !== 0 && filteredSchedule.length === 0 && (
+          <div className="p-6 bg-white rounded-2xl border border-dashed border-slate-300 text-center">
+            <p className="text-sm font-bold text-slate-600">🗓️ {selectedDay}일차는 자유 일정입니다</p>
+            <p className="text-xs text-slate-400 mt-1">
+              미리 준비된 세부 일정이 없는 날이에요. 가족들과 자유롭게 계획을 세워보세요!
+            </p>
+          </div>
+        )}
         {filteredSchedule.map((item, index) => {
           const isCompleted = item.completed;
           const itemRainProb =
